@@ -31,6 +31,15 @@
             </el-option>
           </el-select>
         </div>
+        <ul>
+          <template v-for="(item, key) in data" :key="key">
+            <a @click="moveCenter(item)">
+              <h1>
+                {{ item.properties.name }}
+              </h1>
+            </a>
+          </template>
+        </ul>
       </el-aside>
       <el-main>
         <div id="map"></div>
@@ -44,15 +53,56 @@ import { reactive, ref, toRefs, getCurrentInstance, onMounted, Ref } from "vue";
 import CityCountyData from "../src/assets/CityCountyData.json";
 import L, { Map } from "leaflet";
 
+interface State {
+  select: {
+    city: string;
+    area: string;
+    pharmacies: Array<Pharmacy>;
+  };
+  center: {
+    lat: number;
+    lng: number;
+  };
+}
+
+// 地圖更新事件
+interface Pharmacy {
+  properties: Properties;
+  geometry: Geometry;
+}
+
+interface Properties {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  available: string;
+  county: string;
+  cunli: string;
+  custom_note: string;
+  mask_adult: number;
+  mask_child: number;
+  note: string;
+  service_periods: string;
+  town: string;
+  updated: string;
+}
+
+interface Geometry {
+  coordinates: Array<number>;
+}
+
 export default {
   setup() {
     const cityNames = ref(CityCountyData);
-    const state = reactive({
+    // 藥局數據
+    const api = "https://mask-map-db1616.herokuapp.com";
+    const state: State = reactive({
       select: {
         city: "",
         area: "",
+        pharmacies: [],
       },
-      data: [],
       center: {
         lat: 22.62923093157038,
         lng: 120.33885236441782,
@@ -60,9 +110,13 @@ export default {
     });
     /* @ts-ignore */
     let osmMap: Ref<Map> = ref();
+    let data: any = ref();
+    // 區域清單
     let areas = ref();
     // context
     const instance: any = getCurrentInstance();
+
+    // 地圖配置
     const setMap = () => {
       osmMap.value = L.map("map", {
         center: state.center,
@@ -84,28 +138,42 @@ export default {
       }).addTo(osmMap.value);
     };
 
+    // 取得數據
+    const getData = async () => {
+      let city = cityNames.value[Number(state.select.city)].CityName;
+      let area = state.select.area === "" ? "無" : state.select.area;
+      console.log(city);
+      await instance.proxy.$http.get(`${api}/mask/${city}/${area}`).then(
+        (res: any) => {
+          data.value = res.data;
+          console.log("請求成功", data.value);
+        },
+        () => {
+          console.log("請求失敗");
+        }
+      );
+    };
+    // 加载鉤子
     onMounted(() => {
-      instance.proxy.$http.get(api).then((res: any) => {
-        state.data = res.data.features;
-      });
       setMap();
     });
-
     // 城市選取改變事件
     const chengeCity = async () => {
       state.select.area = "";
+      await getData();
       await loadAreas();
       await removeLayer();
       await updateMap();
       moveCenter();
+      console.log("chengeCity", data.value);
     };
     // 區域選取改變事件
     const chengeArea = async () => {
+      await getData();
       await removeLayer();
       await updateMap();
       moveCenter();
     };
-
     // 刪除就標記
     const removeLayer = () => {
       osmMap.value.eachLayer((layer: any) => {
@@ -123,20 +191,50 @@ export default {
     };
 
     // 移動中心座標
-    const moveCenter = async () => {
-      const result: Array<Pharmacy> =
-        state.select.area === ""
-          ? state.data.filter(
-              (pharmacy: Pharmacy) =>
-                pharmacy.properties.county ===
-                cityNames.value[Number(state.select.city)].CityName
-            )
-          : state.data.filter(
-              (pharmacy: Pharmacy) =>
-                pharmacy.properties.county ===
-                  cityNames.value[Number(state.select.city)].CityName &&
-                pharmacy.properties.town === state.select.area
-            );
+    const moveCenter = async (pharmacy?: Pharmacy) => {
+      if (pharmacy) {
+        console.log("moveCenter", pharmacy.geometry.coordinates);
+        await osmMap.value.flyTo(
+          [pharmacy.geometry.coordinates[1], pharmacy.geometry.coordinates[0]],
+          15,
+          {
+            duration: 1,
+            easeLinearity: 0,
+          }
+        );
+        L.marker([
+          pharmacy.geometry.coordinates[1],
+          pharmacy.geometry.coordinates[0],
+        ])
+          .addTo(osmMap.value)
+          .bindPopup(
+            `
+        <strong>${pharmacy.properties.name}</strong> <br>口罩剩餘：
+        <strong>成人 - ${
+          pharmacy.properties.mask_adult
+            ? `${pharmacy.properties.mask_adult} 個`
+            : "未取得資料"
+        }/ 兒童 - ${
+              pharmacy.properties.mask_child
+                ? `${pharmacy.properties.mask_child} 個`
+                : "未取得資料"
+            }</strong><br>
+        <strong>座標${pharmacy.geometry.coordinates[1]} , ${
+              pharmacy.geometry.coordinates[0]
+            }</strong>
+    地址:
+    <a href="https://www.google.com.tw/maps/place/${
+      pharmacy.properties.address
+    }" target="_blank">
+    ${pharmacy.properties.address}
+    </a><br>
+    電話: ${pharmacy.properties.phone}<br>
+    <small>最後更新時間: ${pharmacy.properties.updated}</small>`
+          )
+          .openPopup();
+        return;
+      }
+      const result: Array<Pharmacy> = data.value;
       // 最大經緯度
       const lng = reactive({
         max: 0,
@@ -184,49 +282,9 @@ export default {
       }
     };
 
-    // 地圖更新事件
-    interface Pharmacy {
-      properties: Properties;
-      geometry: Geometry;
-    }
-
-    interface Properties {
-      id: string;
-      name: string;
-      phone: string;
-      address: string;
-      available: string;
-      county: string;
-      cunli: string;
-      custom_note: string;
-      mask_adult: number;
-      mask_child: number;
-      note: string;
-      service_periods: string;
-      town: string;
-      updated: string;
-    }
-
-    interface Geometry {
-      coordinates: Array<number>;
-    }
-
-    const updateMap = () => {
-      const pharmacies =
-        state.select.area === ""
-          ? state.data.filter(
-              (pharmacy: Pharmacy) =>
-                pharmacy.properties.county ===
-                cityNames.value[Number(state.select.city)].CityName
-            )
-          : state.data.filter(
-              (pharmacy: Pharmacy) =>
-                pharmacy.properties.county ===
-                  cityNames.value[Number(state.select.city)].CityName &&
-                pharmacy.properties.town === state.select.area
-            );
-
-      pharmacies.forEach((pharmacy: Pharmacy) => {
+    const updateMap = async () => {
+      console.log("updateMap", data.value);
+      data.value.forEach((pharmacy: Pharmacy) => {
         // console.log(pharmacy.properties.town);
         const { properties, geometry } = pharmacy;
         L.marker([geometry.coordinates[1], geometry.coordinates[0]]).addTo(
@@ -252,16 +310,14 @@ export default {
       });
     };
 
-    // 藥局數據
-    const api =
-      "https://raw.githubusercontent.com/kiang/pharmacies/master/json/points.json";
-
     return {
       cityNames,
       ...toRefs(state),
       chengeCity,
       chengeArea,
       areas,
+      moveCenter,
+      data,
     };
   },
 };
