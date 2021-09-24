@@ -6,7 +6,8 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "postinstall": "npm run build"
+    "postinstall": "npm install express",
+    "start":"node index.js"
   },
   "dependencies": {
     "@types/leaflet": "^1.7.5",
