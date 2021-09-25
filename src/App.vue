@@ -104,7 +104,7 @@ export default {
   setup() {
     const cityNames = ref(CityCountyData);
     // 藥局數據
-    const api = "https://mask-map-db1616.herokuapp.com";
+    // const api = "https://mask-map-db1616.herokuapp.com";
     // const api = "http://localhost:5000";
     const state: State = reactive({
       select: {
@@ -152,7 +152,7 @@ export default {
       let city = cityNames.value[Number(state.select.city)].CityName;
       let area = state.select.area === "" ? "無" : state.select.area;
       console.log(city);
-      await http.get(`${api}/mask/${city}/${area}`).then(
+      await http.get(`/mask/${city}/${area}`).then(
         (res: any) => {
           data.value = res.data;
           console.log("getData", res);
