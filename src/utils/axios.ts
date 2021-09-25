@@ -14,7 +14,7 @@ function startLoading() {
   if (loadingNum == 0) {
     loading = ElLoading.service({
       lock: true,
-      text: "拼命加载中...",
+      text: "加載中...",
       background: "rgba(255,255,255,0.5)",
     });
   }
