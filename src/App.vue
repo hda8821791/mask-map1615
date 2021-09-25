@@ -49,9 +49,17 @@
 </template>
 
 <script lang="ts">
-import { reactive, ref, toRefs, getCurrentInstance, onMounted, Ref } from "vue";
+import {
+  reactive,
+  ref,
+  toRefs,
+  getCurrentInstance,
+  onMounted,
+  Ref,
+} from "vue";
 import CityCountyData from "../src/assets/CityCountyData.json";
 import L, { Map } from "leaflet";
+import { AxiosInstance } from "axios";
 
 interface State {
   select: {
@@ -97,6 +105,7 @@ export default {
     const cityNames = ref(CityCountyData);
     // 藥局數據
     const api = "https://mask-map-db1616.herokuapp.com";
+    // const api = "http://localhost:5000";
     const state: State = reactive({
       select: {
         city: "",
@@ -114,8 +123,8 @@ export default {
     // 區域清單
     let areas = ref();
     // context
-    const instance: any = getCurrentInstance();
-
+    const { proxy }: any = getCurrentInstance();
+    const http: AxiosInstance = proxy.$http;
     // 地圖配置
     const setMap = () => {
       osmMap.value = L.map("map", {
@@ -143,10 +152,10 @@ export default {
       let city = cityNames.value[Number(state.select.city)].CityName;
       let area = state.select.area === "" ? "無" : state.select.area;
       console.log(city);
-      await instance.proxy.$http.get(`${api}/mask/${city}/${area}`).then(
+      await http.get(`${api}/mask/${city}/${area}`).then(
         (res: any) => {
           data.value = res.data;
-          console.log("請求成功", data.value);
+          console.log("getData", res);
         },
         () => {
           console.log("請求失敗");
@@ -165,7 +174,7 @@ export default {
       await removeLayer();
       await updateMap();
       moveCenter();
-      console.log("chengeCity", data.value);
+      // console.log("chengeCity", data.value);
     };
     // 區域選取改變事件
     const chengeArea = async () => {
