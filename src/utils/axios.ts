@@ -1,7 +1,7 @@
 import Axios from "axios";
 import { ElMessage, ElLoading, ILoadingInstance } from "element-plus";
 
-const baseURL = "https://mask-map-db1615.vercel.app/";
+const baseURL = "https://mask-map-db1616.vercel.app";
 
 const axios = Axios.create({
   baseURL,
